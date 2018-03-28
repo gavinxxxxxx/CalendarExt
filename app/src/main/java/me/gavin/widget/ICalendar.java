@@ -15,8 +15,6 @@ import android.widget.Scroller;
 
 import java.util.Date;
 
-import me.gavin.widget.calendar.L;
-
 /**
  * 这里是萌萌哒注释君
  *
@@ -33,8 +31,9 @@ public class ICalendar extends View {
 
     private int mWidth, mHeight;
     private float mCellWidth, mCellHeight;
+    private float mDiffY;
 
-    private final Paint mTextPaint;
+    private final Paint mTextPaint, mSPaint;
     private final Paint mDebugPaint;
 
     private Scroller mScroller;
@@ -57,6 +56,9 @@ public class ICalendar extends View {
         mTextPaint.setTextSize(TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
 
+        mSPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mSPaint.setStyle(Paint.Style.FILL);
+
         mDebugPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mDebugPaint.setColor((int) (Math.random() * 0xFFFFFF) + 0xFF000000);
 
@@ -64,6 +66,7 @@ public class ICalendar extends View {
 
         mToday = new Date();
         mSelectedDate = mToday;
+        mData = DateData.get(mSelectedDate, mToday);
 //        mSelectedDate = new Date(148002000000L);
     }
 
@@ -73,89 +76,46 @@ public class ICalendar extends View {
         mHeight = h;
         mCellWidth = mWidth / 7f;
         mCellHeight = mCellWidth * 0.9f;
+
+        RectF targetRect = new RectF(0, 0, mCellWidth, mCellHeight);
+        Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
+        float baseline = (targetRect.bottom + targetRect.top - fontMetrics.bottom - fontMetrics.top) / 2f;
+        mDiffY = baseline - mCellHeight / 2f;
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        L.e(DateData.get(mSelectedDate));
-
-        drawMonth(canvas, mSelectedDate, 0);
-        drawMonth(canvas, Utils.offsetMonth(mSelectedDate, -1), -mWidth);
-        drawMonth(canvas, Utils.offsetMonth(mSelectedDate, 1), mWidth);
+        if (mData == null) return;
+        drawMonth(canvas, -1);
+        drawMonth(canvas, 0);
+        drawMonth(canvas, 1);
     }
 
     private void drawMonth(Canvas canvas, int offset) {
         DateData.Month month = mData.months.get(offset + 1);
         for (int i = 0; i < month.weeks.size(); i++) {
-
+            drawWeek(canvas, month.weeks.get(i), offset, mCellHeight * i + mCellHeight / 2);
         }
-        for (DateData.Week t : mData.months.get(offset + 1).weeks) {
+    }
 
+    private void drawWeek(Canvas canvas, DateData.Week week, int offset, float y) {
+        for (int i = 0; i < week.days.size(); i++) {
+            drawDay(canvas, week.days.get(i), mCellWidth * i + mCellWidth / 2f + offset * mWidth, y);
         }
     }
 
     private void drawDay(Canvas canvas, DateData.Day day, float x, float y) {
-        RectF targetRect = new RectF(x - mCellWidth / 2 + 2, y - mCellHeight / 2 + 2,
-                x + mCellWidth / 2 - 2, y + mCellHeight / 2 - 2);
-        Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
-        float baseline = (targetRect.bottom + targetRect.top - fontMetrics.bottom - fontMetrics.top) / 2f;
-        mTextPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText(String.valueOf(day.day), targetRect.centerX(), baseline, mTextPaint);
-    }
+        // 非当月
+        if (day.different) return;
 
-    private void drawMonth(Canvas canvas, Date date, int offset) {
-        int year = Utils.getYear(date);
-        int month = Utils.getMonth(date);
-        int daySum = Utils.getMaxDayOfMonth(year, month);
-        int dayOffset = Utils.getMonthFirstDayOfWeek(year, month) - 1;
-        int lineCount = (daySum + dayOffset) / 7 + ((daySum + dayOffset) % 7 > 0 ? 1 : 0);
-
-        canvas.drawRect(offset, 0, mWidth + offset, mCellHeight * lineCount, mDebugPaint);
-
-//        for (int i = 0; i < 7; i++) {
-//            canvas.drawText(Utils.getWeekday(i), mCellWidth * i + mCellWidth / 2f + offset, mCellHeight / 2, mTextPaint);
-//        }
-
-        for (int i = 0; i < lineCount; i++) {
-            float y = mCellHeight * i + mCellHeight / 2;
-            drawWeek(canvas, i * 7 + 1 - dayOffset, Math.min(i * 7 + 1 - dayOffset + 6, daySum), offset, y);
-//            drawWeek(canvas, year, month, i * 7 + 1 - dayOffset, y, offset);
-//            for (int j = 0; j < 7 && i * 7 + j < daySum + dayOffset; j++) {
-//                if (i * 7 + j + 1 - dayOffset > 0) {
-//                    drawDay(canvas, year, month, i * 7 + j + 1 - dayOffset, mCellWidth * j + mCellWidth / 2f + offset, y);
-//                }
-//            }
+        if (day.today) {
+            mSPaint.setColor(0xB0CC44AA);
+            canvas.drawCircle(x, y, 42, mSPaint);
+        } else if (day.selected) {
+            mSPaint.setColor(0x80FFFFFF);
+            canvas.drawCircle(x, y, 42, mSPaint);
         }
-    }
-
-    private void drawWeek(Canvas canvas, int startDay, int endDay, int offset, float y) {
-        for (int i = startDay; i <= endDay; i++) {
-            if (i > 0) {
-                drawDay(canvas, i, mCellWidth * (i - startDay) + mCellWidth / 2f + offset, y);
-            }
-        }
-    }
-
-    private void drawDay(Canvas canvas, int day, float x, float y) {
-//        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-//        paint.setStyle(Paint.Style.FILL);
-//        if (year == Utils.getYear(mToday)
-//                && month == Utils.getMonth(mToday)
-//                && day == Utils.getDayOfMonth(mToday)) {
-//            paint.setColor(0xB0CC44AA);
-//            canvas.drawCircle(x, y, 38, paint);
-//        } else if (year == Utils.getYear(mSelectedDate)
-//                && month == Utils.getMonth(mSelectedDate)
-//                && day == Utils.getDayOfMonth(mSelectedDate)) {
-//            paint.setColor(0x80FFFFFF);
-//            canvas.drawCircle(x, y, 38, paint);
-//        }
-        RectF targetRect = new RectF(x - mCellWidth / 2 + 2, y - mCellHeight / 2 + 2,
-                x + mCellWidth / 2 - 2, y + mCellHeight / 2 - 2);
-        Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
-        float baseline = (targetRect.bottom + targetRect.top - fontMetrics.bottom - fontMetrics.top) / 2f;
-        mTextPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText(String.valueOf(day), targetRect.centerX(), baseline, mTextPaint);
+        canvas.drawText(String.valueOf(day.day), x, y + mDiffY, mTextPaint);
     }
 
     private float mLastX, mLastY;
@@ -207,6 +167,7 @@ public class ICalendar extends View {
             // TODO: 2018/3/27  复位结束
             if (getScrollX() != 0) {
                 mSelectedDate = Utils.offsetMonth(mSelectedDate, getScrollX() > 0 ? 1 : -1);
+                mData = DateData.get(mSelectedDate, mToday);
                 if (mOnMonthSelectedListener != null) {
                     mOnMonthSelectedListener.accept(Utils.getYear(mSelectedDate), Utils.getMonth(mSelectedDate));
                 }

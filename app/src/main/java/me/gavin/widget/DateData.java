@@ -48,6 +48,7 @@ public class DateData {
 
         public Day(Date date) {
             this.date = date;
+            day = Utils.getDayOfMonth(date);
         }
 
         @Override
@@ -65,18 +66,18 @@ public class DateData {
                 '}';
     }
 
-    public static DateData get(Date date) {
+    public static DateData get(Date sel, Date today) {
         DateData result = new DateData();
-        result.months.add(getMonth(date, -1));
-        result.months.add(getMonth(date, 0));
-        result.months.add(getMonth(date, 1));
+        result.months.add(getMonth(sel, today, -1));
+        result.months.add(getMonth(sel, today, 0));
+        result.months.add(getMonth(sel, today, 1));
         return result;
     }
 
-    private static DateData.Month getMonth(Date date, int offset) {
+    private static DateData.Month getMonth(Date sel, Date today, int offset) {
         DateData.Month result = new DateData.Month();
         Calendar sCalendar = Calendar.getInstance();
-        sCalendar.setTime(date);
+        sCalendar.setTime(sel);
         sCalendar.add(Calendar.MONTH, offset);
         // 当月天数
         int dayCount = sCalendar.getActualMaximum(Calendar.DAY_OF_MONTH);
@@ -91,7 +92,11 @@ public class DateData {
             if (i % 7 == 0) {
                 result.weeks.add(i / 7, new DateData.Week());
             }
-            result.weeks.get(i / 7).days.add(new DateData.Day(sCalendar.getTime()));
+            DateData.Day day = new DateData.Day(sCalendar.getTime());
+            day.today = today.equals(day.date);
+            day.selected = sel.equals(day.date);
+            day.different = i < 7 && day.day > 7 || i > 14 && day.day < 7;
+            result.weeks.get(i / 7).days.add(day);
             sCalendar.add(Calendar.DAY_OF_MONTH, 1);
         }
         return result;
