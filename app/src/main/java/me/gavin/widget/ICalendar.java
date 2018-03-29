@@ -41,10 +41,11 @@ public class ICalendar extends View {
     private Date mToday;
     private Date mSelectedDate;
     private int mMode;
-    private int mScrollOrientation;
+    private int mScrollState;
     private int closeHeigth;
 
     private DateData mData;
+    private float mSelTop;
 
     private OnMonthSelectedListener mOnMonthSelectedListener;
 
@@ -60,14 +61,14 @@ public class ICalendar extends View {
         mSPaint.setStyle(Paint.Style.FILL);
 
         mDebugPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mDebugPaint.setColor((int) (Math.random() * 0xFFFFFF) + 0xFF000000);
+        mDebugPaint.setColor((int) (Math.random() * 0xFFFFFF) + 0x40000000);
 
         mScroller = new Scroller(context);
 
         mToday = new Date();
-        mSelectedDate = mToday;
+        // mSelectedDate = mToday;
+        mSelectedDate = new Date(1521043200000L);
         mData = DateData.get(mSelectedDate, mToday);
-//        mSelectedDate = new Date(148002000000L);
     }
 
     @Override
@@ -86,19 +87,45 @@ public class ICalendar extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         if (mData == null) return;
+
+        for (int i = 0; i < 7; i++) {
+            canvas.drawText(Utils.getWeekday(i),
+                    mCellWidth * i + mCellWidth / 2f + getScrollX(),
+                    mCellHeight / 2f + mDiffY + getScrollY(), mTextPaint);
+        }
+
+//        Path path = new Path();
+//        path.addRect(20, 20, mWidth - 20, 180, Path.Direction.CCW);
+//        path.addRect(20, 220, mWidth - 20, 380, Path.Direction.CCW);
+//        canvas.clipPath(path);
+        canvas.clipRect(20, mCellHeight + getScrollY(), mWidth - 20, 900);
+
+        canvas.drawColor(0x40FF0000);
+//        canvas.clipRect(20, 20, mWidth - 20, 280, Region.Op.UNION);
+//        canvas.clipRect(20, 320, mWidth - 20, 580, Region.Op.UNION);
+
         drawMonth(canvas, -1);
         drawMonth(canvas, 0);
         drawMonth(canvas, 1);
+
+//        canvas.save();
+//        canvas.clipRect(20, 320, mWidth - 20, 580, Region.Op.REVERSE_DIFFERENCE);
+//        canvas.restore();
+
+//        canvas.drawRect(getScrollX(), getScrollY(), mWidth + getScrollX(), mCellHeight + getScrollY(), mDebugPaint);
     }
 
     private void drawMonth(Canvas canvas, int offset) {
         DateData.Month month = mData.months.get(offset + 1);
         for (int i = 0; i < month.weeks.size(); i++) {
-            drawWeek(canvas, month.weeks.get(i), offset, mCellHeight * i + mCellHeight / 2);
+            drawWeek(canvas, month.weeks.get(i), offset, mCellHeight * i + mCellHeight * 1.5f);
         }
     }
 
     private void drawWeek(Canvas canvas, DateData.Week week, int offset, float y) {
+        if (week.selected) {
+            y = Math.max(y, getScrollY() + mCellHeight * 1.5f);
+        }
         for (int i = 0; i < week.days.size(); i++) {
             drawDay(canvas, week.days.get(i), mCellWidth * i + mCellWidth / 2f + offset * mWidth, y);
         }
@@ -126,31 +153,52 @@ public class ICalendar extends View {
         // TODO: 2018/3/27  event.getPointerCount() > 1
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                mVelocityTracker = VelocityTracker.obtain();
-                mVelocityTracker.addMovement(event);
                 mScroller.forceFinished(true);
                 mLastX = event.getX();
                 mLastY = event.getY();
                 break;
             case MotionEvent.ACTION_MOVE:
-                mVelocityTracker.addMovement(event);
-                setScrollX(getScrollX() + (int) (mLastX - event.getX()));
-                mLastX = event.getX();
-                mLastY = event.getY();
+                if (mScrollState == SCROLL_NONE) {
+                    if (Math.abs(mLastX - event.getX()) > ViewConfiguration.get(getContext()).getScaledTouchSlop()) {
+                        mScrollState = SCROLL_HORIZONTAL;
+                        mVelocityTracker = VelocityTracker.obtain();
+                    } else if (Math.abs(mLastY - event.getY()) > ViewConfiguration.get(getContext()).getScaledTouchSlop()) {
+                        mScrollState = SCROLL_VERTICAL;
+                        mVelocityTracker = VelocityTracker.obtain();
+                    }
+                }
+                if (mScrollState == SCROLL_HORIZONTAL) {
+                    mVelocityTracker.addMovement(event);
+                    setScrollX(getScrollX() > 0
+                            ? Math.min(mWidth, getScrollX() + (int) (mLastX - event.getX()))
+                            : Math.max(-mWidth, getScrollX() + (int) (mLastX - event.getX())));
+                    mLastX = event.getX();
+                    mLastY = event.getY();
+                } else if (mScrollState == SCROLL_VERTICAL) {
+                    mVelocityTracker.addMovement(event);
+                    setScrollY(getScrollY() > 0
+                            ? Math.min(mHeight, getScrollY() + (int) (mLastY - event.getY()))
+                            : Math.max(-mHeight, getScrollY() + (int) (mLastY - event.getY())));
+                    mLastX = event.getX();
+                    mLastY = event.getY();
+                }
                 break;
             case MotionEvent.ACTION_UP:
-                mVelocityTracker.addMovement(event);
-                mVelocityTracker.computeCurrentVelocity(1000);
-                float xv = mVelocityTracker.getXVelocity();
-                int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity();
-                if (Math.abs(xv) < minFlingVelocity) {
-                    smoothScrollBy(-getScrollX(), 0, 500);
-                } else if (xv > 0) {
-                    smoothScrollBy((-mWidth - getScrollX()) % mWidth, 0, 500);
-                } else {
-                    smoothScrollBy((mWidth - getScrollX()) % mWidth, 0, 500);
+                if (mScrollState != SCROLL_NONE) {
+                    mVelocityTracker.addMovement(event);
+                    mVelocityTracker.computeCurrentVelocity(1000);
+                    float xv = mVelocityTracker.getXVelocity();
+                    int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity();
+                    if (Math.abs(xv) < minFlingVelocity) {
+                        smoothScrollBy(-getScrollX(), 0, 500);
+                    } else if (xv > 0) {
+                        smoothScrollBy((-mWidth - getScrollX()) % mWidth, 0, 500);
+                    } else {
+                        smoothScrollBy((mWidth - getScrollX()) % mWidth, 0, 500);
+                    }
+                    mVelocityTracker.recycle();
                 }
-                mVelocityTracker.recycle();
+                mScrollState = SCROLL_NONE;
                 break;
         }
         return true;

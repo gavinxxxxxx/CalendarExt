@@ -14,6 +14,7 @@ import java.util.Locale;
 public class DateData {
 
     public final List<Month> months = new ArrayList<>(3);
+    public int sLine;
 
     public static class Month {
         public final List<Week> weeks = new ArrayList<>(6);
@@ -28,6 +29,8 @@ public class DateData {
 
     public static class Week {
         public final List<Day> days = new ArrayList<>(7);
+
+        public boolean selected;
 
         @Override
         public String toString() {
@@ -66,11 +69,23 @@ public class DateData {
                 '}';
     }
 
+    public int getSLine() {
+        for (Week week : months.get(1).weeks) {
+            for (Day day : week.days) {
+                if (day.selected) {
+                    return months.get(1).weeks.indexOf(week);
+                }
+            }
+        }
+        return 0;
+    }
+
     public static DateData get(Date sel, Date today) {
         DateData result = new DateData();
         result.months.add(getMonth(sel, today, -1));
         result.months.add(getMonth(sel, today, 0));
         result.months.add(getMonth(sel, today, 1));
+        result.sLine = result.getSLine();
         return result;
     }
 
@@ -95,6 +110,9 @@ public class DateData {
             DateData.Day day = new DateData.Day(sCalendar.getTime());
             day.today = today.equals(day.date);
             day.selected = sel.equals(day.date);
+            if (day.selected) {
+                result.weeks.get(i / 7).selected = true;
+            }
             day.different = i < 7 && day.day > 7 || i > 14 && day.day < 7;
             result.weeks.get(i / 7).days.add(day);
             sCalendar.add(Calendar.DAY_OF_MONTH, 1);
