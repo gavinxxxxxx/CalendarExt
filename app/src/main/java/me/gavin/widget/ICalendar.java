@@ -176,9 +176,9 @@ public class ICalendar extends View {
                     mLastY = event.getY();
                 } else if (mScrollState == SCROLL_VERTICAL) {
                     mVelocityTracker.addMovement(event);
-                    setScrollY(getScrollY() > 0
-                            ? Math.min(mHeight, getScrollY() + (int) (mLastY - event.getY()))
-                            : Math.max(-mHeight, getScrollY() + (int) (mLastY - event.getY())));
+                    setScrollY(getScrollY() >= 0
+                            ? Math.min((int)(mCellHeight * 4), getScrollY() + (int) (mLastY - event.getY()))
+                            : 0);
                     mLastX = event.getX();
                     mLastY = event.getY();
                 }
