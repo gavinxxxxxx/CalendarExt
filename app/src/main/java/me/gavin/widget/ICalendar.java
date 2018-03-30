@@ -72,12 +72,17 @@ public class ICalendar extends View {
     }
 
     @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        mWidth = w;
-        mHeight = h;
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        mWidth = MeasureSpec.getSize(widthMeasureSpec);
         mCellWidth = mWidth / 7f;
         mCellHeight = mCellWidth * 0.9f;
+        mHeight = (int) (mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
+        mHeight = Math.min(mHeight, MeasureSpec.getSize(heightMeasureSpec));
+        setMeasuredDimension(mWidth, mHeight);
+    }
 
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         RectF targetRect = new RectF(0, 0, mCellWidth, mCellHeight);
         Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
         float baseline = (targetRect.bottom + targetRect.top - fontMetrics.bottom - fontMetrics.top) / 2f;
@@ -94,25 +99,13 @@ public class ICalendar extends View {
                     mCellHeight / 2f + mDiffY + getScrollY(), mTextPaint);
         }
 
-//        Path path = new Path();
-//        path.addRect(20, 20, mWidth - 20, 180, Path.Direction.CCW);
-//        path.addRect(20, 220, mWidth - 20, 380, Path.Direction.CCW);
-//        canvas.clipPath(path);
-        canvas.clipRect(20, mCellHeight + getScrollY(), mWidth - 20, 900);
+        canvas.clipRect(20 - mWidth, mCellHeight + getScrollY() + 20, mWidth * 2 - 20, mHeight - 20);
 
         canvas.drawColor(0x40FF0000);
-//        canvas.clipRect(20, 20, mWidth - 20, 280, Region.Op.UNION);
-//        canvas.clipRect(20, 320, mWidth - 20, 580, Region.Op.UNION);
 
         drawMonth(canvas, -1);
         drawMonth(canvas, 0);
         drawMonth(canvas, 1);
-
-//        canvas.save();
-//        canvas.clipRect(20, 320, mWidth - 20, 580, Region.Op.REVERSE_DIFFERENCE);
-//        canvas.restore();
-
-//        canvas.drawRect(getScrollX(), getScrollY(), mWidth + getScrollX(), mCellHeight + getScrollY(), mDebugPaint);
     }
 
     private void drawMonth(Canvas canvas, int offset) {
@@ -169,16 +162,13 @@ public class ICalendar extends View {
                 }
                 if (mScrollState == SCROLL_HORIZONTAL) {
                     mVelocityTracker.addMovement(event);
-                    setScrollX(getScrollX() > 0
-                            ? Math.min(mWidth, getScrollX() + (int) (mLastX - event.getX()))
-                            : Math.max(-mWidth, getScrollX() + (int) (mLastX - event.getX())));
+                    setScrollX((int) Math.min(mWidth, Math.max(-mWidth, getScrollX() + mLastX - event.getX())));
                     mLastX = event.getX();
                     mLastY = event.getY();
                 } else if (mScrollState == SCROLL_VERTICAL) {
                     mVelocityTracker.addMovement(event);
-                    setScrollY(getScrollY() >= 0
-                            ? Math.min((int)(mCellHeight * 4), getScrollY() + (int) (mLastY - event.getY()))
-                            : 0);
+//                    setTranslationY(Math.min(0, Math.max(-mCellHeight * 4 , getTranslationY() - mLastY + event.getY())));
+                    setScrollY((int) Math.min(mCellHeight * 4, Math.max(0, getScrollY() + mLastY - event.getY())));
                     mLastX = event.getX();
                     mLastY = event.getY();
                 }
