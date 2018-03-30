@@ -1,5 +1,7 @@
 package me.gavin.widget;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
@@ -16,6 +18,14 @@ public final class Utils {
     static {
         sCalendar = Calendar.getInstance();
         sCalendar.setFirstDayOfWeek(Calendar.SUNDAY);
+    }
+
+    public static Date parse(String date, String format) {
+        try {
+            return new SimpleDateFormat(format, Locale.getDefault()).parse(date);
+        } catch (ParseException e) {
+            return null;
+        }
     }
 
     /**

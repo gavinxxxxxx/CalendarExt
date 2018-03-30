@@ -3,7 +3,6 @@ package me.gavin.widget;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.RectF;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -67,7 +66,8 @@ public class ICalendar extends View {
 
         mToday = new Date();
         // mSelectedDate = mToday;
-        mSelectedDate = new Date(1521043200000L);
+        // mSelectedDate = new Date(1521043200000L);
+        mSelectedDate = Utils.parse("20180308", "yyyyMMdd");
         mData = DateData.get(mSelectedDate, mToday);
     }
 
@@ -76,17 +76,12 @@ public class ICalendar extends View {
         mWidth = MeasureSpec.getSize(widthMeasureSpec);
         mCellWidth = mWidth / 7f;
         mCellHeight = mCellWidth * 0.9f;
+        Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
+        float baseline = (mCellHeight - fontMetrics.bottom - fontMetrics.top) / 2f;
+        mDiffY = baseline - mCellHeight / 2f;
         mHeight = (int) (mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
         mHeight = Math.min(mHeight, MeasureSpec.getSize(heightMeasureSpec));
         setMeasuredDimension(mWidth, mHeight);
-    }
-
-    @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        RectF targetRect = new RectF(0, 0, mCellWidth, mCellHeight);
-        Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
-        float baseline = (targetRect.bottom + targetRect.top - fontMetrics.bottom - fontMetrics.top) / 2f;
-        mDiffY = baseline - mCellHeight / 2f;
     }
 
     @Override
@@ -99,7 +94,7 @@ public class ICalendar extends View {
                     mCellHeight / 2f + mDiffY + getScrollY(), mTextPaint);
         }
 
-        canvas.clipRect(20 - mWidth, mCellHeight + getScrollY() + 20, mWidth * 2 - 20, mHeight - 20);
+        canvas.clipRect(-mWidth, mCellHeight + getScrollY(), mWidth * 2, mHeight + getScrollY());
 
         canvas.drawColor(0x40FF0000);
 
@@ -111,13 +106,14 @@ public class ICalendar extends View {
     private void drawMonth(Canvas canvas, int offset) {
         DateData.Month month = mData.months.get(offset + 1);
         for (int i = 0; i < month.weeks.size(); i++) {
-            drawWeek(canvas, month.weeks.get(i), offset, mCellHeight * i + mCellHeight * 1.5f);
+            drawWeek(canvas, month.weeks.get(i), offset, mCellHeight * i + mCellHeight * 1.5f, i);
         }
     }
 
-    private void drawWeek(Canvas canvas, DateData.Week week, int offset, float y) {
-        if (week.selected) {
-            y = Math.max(y, getScrollY() + mCellHeight * 1.5f);
+    private void drawWeek(Canvas canvas, DateData.Week week, int offset, float y, int line) {
+        line -= mData.sLine;
+        if (line >= 0) {
+            y = Math.max(y, getScrollY() + mCellHeight * 1.5f + line * mCellHeight);
         }
         for (int i = 0; i < week.days.size(); i++) {
             drawDay(canvas, week.days.get(i), mCellWidth * i + mCellWidth / 2f + offset * mWidth, y);
@@ -168,7 +164,12 @@ public class ICalendar extends View {
                 } else if (mScrollState == SCROLL_VERTICAL) {
                     mVelocityTracker.addMovement(event);
 //                    setTranslationY(Math.min(0, Math.max(-mCellHeight * 4 , getTranslationY() - mLastY + event.getY())));
+//                    invalidate();
                     setScrollY((int) Math.min(mCellHeight * 4, Math.max(0, getScrollY() + mLastY - event.getY())));
+////                    setBottom((int) Math.min(mCellHeight * 6, Math.max(mCellHeight * 2, getBottom() - mLastY + event.getY())));
+////                    setBottom((int)(getBottom() - mLastY + event.getY()));
+                    getLayoutParams().height = Math.max((int) mCellHeight * 2, mHeight - (int) (mLastY - event.getY()));
+                    requestLayout();
                     mLastX = event.getX();
                     mLastY = event.getY();
                 }
