@@ -67,7 +67,7 @@ public class ICalendar extends View {
         mToday = new Date();
         // mSelectedDate = mToday;
         // mSelectedDate = new Date(1521043200000L);
-        mSelectedDate = Utils.parse("20180308", "yyyyMMdd");
+        mSelectedDate = Utils.parse("20180315", "yyyyMMdd");
         mData = DateData.get(mSelectedDate, mToday);
     }
 
@@ -163,12 +163,8 @@ public class ICalendar extends View {
                     mLastY = event.getY();
                 } else if (mScrollState == SCROLL_VERTICAL) {
                     mVelocityTracker.addMovement(event);
-//                    setTranslationY(Math.min(0, Math.max(-mCellHeight * 4 , getTranslationY() - mLastY + event.getY())));
-//                    invalidate();
-                    setScrollY((int) Math.min(mCellHeight * 4, Math.max(0, getScrollY() + mLastY - event.getY())));
-////                    setBottom((int) Math.min(mCellHeight * 6, Math.max(mCellHeight * 2, getBottom() - mLastY + event.getY())));
-////                    setBottom((int)(getBottom() - mLastY + event.getY()));
                     getLayoutParams().height = Math.max((int) mCellHeight * 2, mHeight - (int) (mLastY - event.getY()));
+                    setScrollY((int) Math.min(mCellHeight * 4, Math.max(0, getScrollY() + mLastY - event.getY())));
                     requestLayout();
                     mLastX = event.getX();
                     mLastY = event.getY();
