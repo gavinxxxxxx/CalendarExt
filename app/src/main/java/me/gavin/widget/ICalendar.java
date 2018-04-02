@@ -14,7 +14,6 @@ import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.Scroller;
 
 import java.util.Date;
 
@@ -36,7 +35,6 @@ public class ICalendar extends View {
     private final Paint mTextPaint, mSPaint;
     private final Paint mDebugPaint;
 
-    private Scroller mScroller;
     private ValueAnimator mXAnimator, mYAnimator;
 
     private Date mToday;
@@ -62,12 +60,8 @@ public class ICalendar extends View {
         mDebugPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mDebugPaint.setColor((int) (Math.random() * 0xFFFFFF) + 0x40000000);
 
-        mScroller = new Scroller(context);
-
         mToday = new Date();
-        // mSelectedDate = mToday;
-        // mSelectedDate = new Date(1521043200000L);
-        mSelectedDate = Utils.parse("20180415", "yyyyMMdd");
+        mSelectedDate = mToday;
         mData = DateData.get(mSelectedDate, mToday);
     }
 
@@ -143,7 +137,9 @@ public class ICalendar extends View {
         // TODO: 2018/3/27  event.getPointerCount() > 1
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                mScroller.forceFinished(true);
+                if (mXAnimator != null && mXAnimator.isRunning()) {
+                    mXAnimator.cancel();
+                }
                 mLastX = event.getX();
                 mLastY = event.getY();
                 break;
@@ -171,13 +167,30 @@ public class ICalendar extends View {
                 }
                 break;
             case MotionEvent.ACTION_UP:
+                if (mScrollState == SCROLL_NONE && event.getY() > mCellHeight) {
+                    int xi = (int) event.getX() / (int) mCellWidth;
+                    int yi = (int) event.getY() / (int) mCellHeight - 1;
+                    DateData.Day day = isMonthMode()
+                            ? mData.months.get(1).weeks.get(yi).days.get(xi)
+                            : mData.weeks.get(1).days.get(xi);
+                    if (!isMonthMode() || !day.different) {
+                        mSelectedDate = day.date;
+                        mData = DateData.get(mSelectedDate, mToday);
+                        if (mDateSelectedListener != null) {
+                            mDateSelectedListener.accept(mSelectedDate);
+                            postInvalidate();
+                        }
+                    }
+                }
+
                 if (mScrollState != SCROLL_NONE) {
                     mVelocityTracker.addMovement(event);
                     mVelocityTracker.computeCurrentVelocity(1000);
                 }
+
                 if (mScrollState == SCROLL_HORIZONTAL) {
                     float xv = mVelocityTracker.getXVelocity();
-                    int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity();
+                    int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity() * 2;
                     if (Math.abs(xv) < minFlingVelocity) {
                         smoothScrollXBy(getScrollX(), Math.abs(getScrollX()) < mWidth / 2 ? 0 : getScrollX() > 0 ? mWidth : -mWidth);
                     } else {
@@ -185,7 +198,7 @@ public class ICalendar extends View {
                     }
                 } else if (mScrollState == SCROLL_VERTICAL) {
                     float yv = mVelocityTracker.getYVelocity();
-                    int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity();
+                    int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity() * 2;
                     if (Math.abs(yv) < minFlingVelocity) {
                         smoothScrollYBy(mHeight, mHeight - mCellHeight * 2 > mHeight2 - mHeight ? mHeight2 : (int) mCellHeight * 2);
                     } else {
@@ -206,7 +219,7 @@ public class ICalendar extends View {
      * 当前是否为月模式
      */
     private boolean isMonthMode() {
-        return mHeight > Math.round(mCellHeight * 2);
+        return mHeight > Math.ceil(mCellHeight * 2);
     }
 
     public void smoothScrollXBy(int cw, int tw) {
@@ -232,7 +245,7 @@ public class ICalendar extends View {
                             mDateSelectedListener.accept((Date) mSelectedDate.clone());
                         }
                     }
-                    scrollTo(0, 0);
+                    setScrollX(0);
                     postInvalidate();
                 }
             });

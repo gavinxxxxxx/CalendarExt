@@ -105,9 +105,11 @@ public class DateData {
 
     public static DateData get(Date sel, Date today) {
         DateData result = new DateData();
-        result.months.add(getMonth(sel, today, -1));
-        result.months.add(getMonth(sel, today, 0));
-        result.months.add(getMonth(sel, today, 1));
+        long selMillis = sel.getTime() - sel.getTime() % 86400000;
+        long todayMillis = today.getTime() - today.getTime() % 86400000;
+        result.months.add(getMonth(selMillis, todayMillis, -1));
+        result.months.add(getMonth(selMillis, todayMillis, 0));
+        result.months.add(getMonth(selMillis, todayMillis, 1));
         result.sLine = result.getSLine();
 
         result.initWeek();
@@ -115,10 +117,10 @@ public class DateData {
         return result;
     }
 
-    private static DateData.Month getMonth(Date sel, Date today, int offset) {
+    private static DateData.Month getMonth(long sel, long today, int offset) {
         DateData.Month result = new DateData.Month();
         Calendar sCalendar = Calendar.getInstance();
-        sCalendar.setTime(sel);
+        sCalendar.setTimeInMillis(sel);
         sCalendar.add(Calendar.MONTH, offset);
         // 当月天数
         int dayCount = sCalendar.getActualMaximum(Calendar.DAY_OF_MONTH);
@@ -134,8 +136,8 @@ public class DateData {
                 result.weeks.add(i / 7, new DateData.Week());
             }
             DateData.Day day = new DateData.Day(sCalendar.getTime());
-            day.today = today.equals(day.date);
-            day.selected = sel.equals(day.date);
+            day.today = today == day.date.getTime();
+            day.selected = sel == day.date.getTime();
             if (day.selected) {
                 result.weeks.get(i / 7).selected = true;
             }
