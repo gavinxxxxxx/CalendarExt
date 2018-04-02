@@ -1,5 +1,8 @@
 package me.gavin.widget;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -10,6 +13,7 @@ import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.Scroller;
 
 import java.util.Date;
@@ -21,14 +25,11 @@ import java.util.Date;
  */
 public class ICalendar extends View {
 
-    public static final int MODE_MONTH = 0; // 月模式
-    public static final int MODE_WEEK = 1; // 周模式
-
     public static final int SCROLL_NONE = 0; // 水平滑动
     public static final int SCROLL_HORIZONTAL = 1; // 水平滑动
     public static final int SCROLL_VERTICAL = 2; // 竖直滑动
 
-    private int mWidth, mHeight;
+    private int mWidth, mHeight, mHeight2;
     private float mCellWidth, mCellHeight;
     private float mDiffY;
 
@@ -36,17 +37,16 @@ public class ICalendar extends View {
     private final Paint mDebugPaint;
 
     private Scroller mScroller;
+    private ValueAnimator mXAnimator, mYAnimator;
 
     private Date mToday;
     private Date mSelectedDate;
-    private int mMode;
     private int mScrollState;
-    private int closeHeigth;
 
     private DateData mData;
     private float mSelTop;
 
-    private OnMonthSelectedListener mOnMonthSelectedListener;
+    private Consumer<Date> mDateSelectedListener;
 
     public ICalendar(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
@@ -67,7 +67,7 @@ public class ICalendar extends View {
         mToday = new Date();
         // mSelectedDate = mToday;
         // mSelectedDate = new Date(1521043200000L);
-        mSelectedDate = Utils.parse("20180315", "yyyyMMdd");
+        mSelectedDate = Utils.parse("20180415", "yyyyMMdd");
         mData = DateData.get(mSelectedDate, mToday);
     }
 
@@ -79,8 +79,8 @@ public class ICalendar extends View {
         Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
         float baseline = (mCellHeight - fontMetrics.bottom - fontMetrics.top) / 2f;
         mDiffY = baseline - mCellHeight / 2f;
-        mHeight = (int) (mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
-        mHeight = Math.min(mHeight, MeasureSpec.getSize(heightMeasureSpec));
+        mHeight2 = (int) (mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
+        mHeight = Math.min(mHeight2, MeasureSpec.getSize(heightMeasureSpec));
         setMeasuredDimension(mWidth, mHeight);
     }
 
@@ -91,16 +91,19 @@ public class ICalendar extends View {
         for (int i = 0; i < 7; i++) {
             canvas.drawText(Utils.getWeekday(i),
                     mCellWidth * i + mCellWidth / 2f + getScrollX(),
-                    mCellHeight / 2f + mDiffY + getScrollY(), mTextPaint);
+                    mCellHeight / 2f + mDiffY, mTextPaint);
         }
 
-        canvas.clipRect(-mWidth, mCellHeight + getScrollY(), mWidth * 2, mHeight + getScrollY());
-
-        canvas.drawColor(0x40FF0000);
-
-        drawMonth(canvas, -1);
-        drawMonth(canvas, 0);
-        drawMonth(canvas, 1);
+        if (isMonthMode()) {
+            canvas.clipRect(getScrollX(), mCellHeight, mWidth + getScrollX(), mHeight);
+            drawMonth(canvas, -1);
+            drawMonth(canvas, 0);
+            drawMonth(canvas, 1);
+        } else {
+            drawWeek(canvas, mData.weeks.get(0), -1, mCellHeight, mData.getSLine());
+            drawWeek(canvas, mData.weeks.get(1), 0, mCellHeight, mData.getSLine());
+            drawWeek(canvas, mData.weeks.get(2), 1, mCellHeight, mData.getSLine());
+        }
     }
 
     private void drawMonth(Canvas canvas, int offset) {
@@ -112,9 +115,7 @@ public class ICalendar extends View {
 
     private void drawWeek(Canvas canvas, DateData.Week week, int offset, float y, int line) {
         line -= mData.sLine;
-        if (line >= 0) {
-            y = Math.max(y, getScrollY() + mCellHeight * 1.5f + line * mCellHeight);
-        }
+        y = Math.max(line * mCellHeight + mCellHeight * 1.5f, y - mHeight2 + mHeight);
         for (int i = 0; i < week.days.size(); i++) {
             drawDay(canvas, week.days.get(i), mCellWidth * i + mCellWidth / 2f + offset * mWidth, y);
         }
@@ -122,7 +123,7 @@ public class ICalendar extends View {
 
     private void drawDay(Canvas canvas, DateData.Day day, float x, float y) {
         // 非当月
-        if (day.different) return;
+        if (day.different && isMonthMode()) return;
 
         if (day.today) {
             mSPaint.setColor(0xB0CC44AA);
@@ -164,7 +165,6 @@ public class ICalendar extends View {
                 } else if (mScrollState == SCROLL_VERTICAL) {
                     mVelocityTracker.addMovement(event);
                     getLayoutParams().height = Math.max((int) mCellHeight * 2, mHeight - (int) (mLastY - event.getY()));
-                    setScrollY((int) Math.min(mCellHeight * 4, Math.max(0, getScrollY() + mLastY - event.getY())));
                     requestLayout();
                     mLastX = event.getX();
                     mLastY = event.getY();
@@ -174,16 +174,27 @@ public class ICalendar extends View {
                 if (mScrollState != SCROLL_NONE) {
                     mVelocityTracker.addMovement(event);
                     mVelocityTracker.computeCurrentVelocity(1000);
+                }
+                if (mScrollState == SCROLL_HORIZONTAL) {
                     float xv = mVelocityTracker.getXVelocity();
                     int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity();
                     if (Math.abs(xv) < minFlingVelocity) {
-                        smoothScrollBy(-getScrollX(), 0, 500);
-                    } else if (xv > 0) {
-                        smoothScrollBy((-mWidth - getScrollX()) % mWidth, 0, 500);
+                        smoothScrollXBy(getScrollX(), Math.abs(getScrollX()) < mWidth / 2 ? 0 : getScrollX() > 0 ? mWidth : -mWidth);
                     } else {
-                        smoothScrollBy((mWidth - getScrollX()) % mWidth, 0, 500);
+                        smoothScrollXBy(getScrollX(), getScrollX() / mWidth * mWidth + xv > 0 ? -mWidth : mWidth);
                     }
+                } else if (mScrollState == SCROLL_VERTICAL) {
+                    float yv = mVelocityTracker.getYVelocity();
+                    int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity();
+                    if (Math.abs(yv) < minFlingVelocity) {
+                        smoothScrollYBy(mHeight, mHeight - mCellHeight * 2 > mHeight2 - mHeight ? mHeight2 : (int) mCellHeight * 2);
+                    } else {
+                        smoothScrollYBy(mHeight, yv > 0 ? mHeight2 : (int) mCellHeight * 2);
+                    }
+                }
+                if (mVelocityTracker != null) {
                     mVelocityTracker.recycle();
+                    mVelocityTracker = null;
                 }
                 mScrollState = SCROLL_NONE;
                 break;
@@ -191,32 +202,64 @@ public class ICalendar extends View {
         return true;
     }
 
-    public void smoothScrollBy(int dx, int dy, int duration) {
-        mScroller.startScroll(getScrollX(), getScrollY(), dx, dy, duration);
-        invalidate();
+    /**
+     * 当前是否为月模式
+     */
+    private boolean isMonthMode() {
+        return mHeight > Math.round(mCellHeight * 2);
     }
 
-    @Override
-    public void computeScroll() {
-        if (mScroller.computeScrollOffset() && mScroller.isFinished()) { // 复位结束
-            // TODO: 2018/3/27  复位结束
-            if (getScrollX() != 0) {
-                mSelectedDate = Utils.offsetMonth(mSelectedDate, getScrollX() > 0 ? 1 : -1);
-                mData = DateData.get(mSelectedDate, mToday);
-                if (mOnMonthSelectedListener != null) {
-                    mOnMonthSelectedListener.accept(Utils.getYear(mSelectedDate), Utils.getMonth(mSelectedDate));
+    public void smoothScrollXBy(int cw, int tw) {
+        if (mXAnimator == null) {
+            mXAnimator = ValueAnimator.ofInt(cw, tw).setDuration(256);
+            mXAnimator.setInterpolator(new DecelerateInterpolator());
+            mXAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    setScrollX((int) animation.getAnimatedValue());
+                    postInvalidate();
                 }
-            }
-            scrollTo(0, 0);
-            postInvalidate();
+            });
+            mXAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    if (getScrollX() != 0) {
+                        mSelectedDate = isMonthMode()
+                                ? Utils.offsetMonth(mSelectedDate, getScrollX() > 0 ? 1 : -1)
+                                : Utils.offsetWeek(mSelectedDate, getScrollX() > 0 ? 1 : -1);
+                        mData = DateData.get(mSelectedDate, mToday);
+                        if (mDateSelectedListener != null) {
+                            mDateSelectedListener.accept((Date) mSelectedDate.clone());
+                        }
+                    }
+                    scrollTo(0, 0);
+                    postInvalidate();
+                }
+            });
+        } else {
+            mXAnimator.setIntValues(cw, tw);
         }
-        if (mScroller.computeScrollOffset()) { // 复位中
-            scrollTo(mScroller.getCurrX(), mScroller.getCurrY());
-            postInvalidate();
-        }
+        mXAnimator.start();
     }
 
-    public void setOnMonthSelectedListener(OnMonthSelectedListener onMonthSelectedListener) {
-        this.mOnMonthSelectedListener = onMonthSelectedListener;
+    public void smoothScrollYBy(int ch, int th) {
+        if (mYAnimator == null) {
+            mYAnimator = ValueAnimator.ofInt(ch, th).setDuration(256);
+            mYAnimator.setInterpolator(new DecelerateInterpolator());
+            mYAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    getLayoutParams().height = (int) animation.getAnimatedValue();
+                    requestLayout();
+                }
+            });
+        } else {
+            mYAnimator.setIntValues(ch, th);
+        }
+        mYAnimator.start();
+    }
+
+    public void setOnDateSelectedListener(Consumer<Date> listener) {
+        this.mDateSelectedListener = listener;
     }
 }

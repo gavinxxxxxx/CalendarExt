@@ -4,10 +4,10 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.Toast;
 
-import java.util.Locale;
+import java.util.Date;
 
+import me.gavin.widget.Consumer;
 import me.gavin.widget.ICalendar;
-import me.gavin.widget.OnMonthSelectedListener;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -17,10 +17,10 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         final ICalendar cal = findViewById(R.id.calendar);
-        cal.setOnMonthSelectedListener(new OnMonthSelectedListener() {
+        cal.setOnDateSelectedListener(new Consumer<Date>() {
             @Override
-            public void accept(int year, int month) {
-                Toast.makeText(MainActivity.this, String.format(Locale.getDefault(), "%04d-%02d", year, month + 1), Toast.LENGTH_LONG).show();
+            public void accept(Date date) {
+                Toast.makeText(MainActivity.this, String.format("%tF", date), Toast.LENGTH_LONG).show();
             }
         });
     }

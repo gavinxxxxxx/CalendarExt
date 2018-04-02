@@ -16,6 +16,8 @@ public class DateData {
     public final List<Month> months = new ArrayList<>(3);
     public int sLine;
 
+    public final List<Week> weeks = new ArrayList<>(3);
+
     public static class Month {
         public final List<Week> weeks = new ArrayList<>(6);
 
@@ -80,12 +82,36 @@ public class DateData {
         return 0;
     }
 
+    public void initWeek() {
+        weeks.clear();
+        for (int i = 0; i < months.get(1).weeks.size(); i++) {
+            Week week = months.get(1).weeks.get(i);
+            if (week.selected) {
+                weeks.add(week);
+                if (i > 0) {
+                    weeks.add(0, months.get(1).weeks.get(i - 1));
+                } else {
+                    weeks.add(0, months.get(0).weeks.get(months.get(0).weeks.size() - 1));
+                }
+                if (i < months.get(1).weeks.size() - 1) {
+                    weeks.add(months.get(1).weeks.get(i + 1));
+                } else {
+                    weeks.add(months.get(2).weeks.get(0));
+                }
+                return;
+            }
+        }
+    }
+
     public static DateData get(Date sel, Date today) {
         DateData result = new DateData();
         result.months.add(getMonth(sel, today, -1));
         result.months.add(getMonth(sel, today, 0));
         result.months.add(getMonth(sel, today, 1));
         result.sLine = result.getSLine();
+
+        result.initWeek();
+
         return result;
     }
 
