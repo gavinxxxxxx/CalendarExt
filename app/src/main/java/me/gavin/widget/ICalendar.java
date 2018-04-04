@@ -6,7 +6,9 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.CoordinatorLayout;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.MotionEvent;
@@ -22,7 +24,7 @@ import java.util.Date;
  *
  * @author gavin.xiong 2018/3/23
  */
-public class ICalendar extends View {
+public class ICalendar extends View implements CoordinatorLayout.AttachedBehavior {
 
     public static final int SCROLL_NONE = 0; // 水平滑动
     public static final int SCROLL_HORIZONTAL = 1; // 水平滑动
@@ -76,6 +78,18 @@ public class ICalendar extends View {
         mHeight2 = (int) (mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
         mHeight = Math.min(mHeight2, MeasureSpec.getSize(heightMeasureSpec));
         setMeasuredDimension(mWidth, mHeight);
+    }
+
+    private int b;
+
+    public int consumed(int dy) {
+        b = getLayoutParams().height = Math.max((int) mCellHeight * 2, mHeight - dy);
+        requestLayout();
+        return mHeight - dy > mCellHeight * 2 ? dy : 0;
+    }
+
+    public int getB() {
+        return Math.min(b != 0 ? b : mHeight2, mHeight);
     }
 
     @Override
@@ -135,7 +149,7 @@ public class ICalendar extends View {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         // TODO: 2018/3/27  event.getPointerCount() > 1
-        switch (event.getAction()) {
+        switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 if (mXAnimator != null && mXAnimator.isRunning()) {
                     mXAnimator.cancel();
@@ -166,6 +180,7 @@ public class ICalendar extends View {
                     mLastY = event.getY();
                 }
                 break;
+            case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP:
                 if (mScrollState == SCROLL_NONE && event.getY() > mCellHeight) {
                     int xi = (int) event.getX() / (int) mCellWidth;
@@ -274,5 +289,11 @@ public class ICalendar extends View {
 
     public void setOnDateSelectedListener(Consumer<Date> listener) {
         this.mDateSelectedListener = listener;
+    }
+
+    @NonNull
+    @Override
+    public CoordinatorLayout.Behavior getBehavior() {
+        return new IBehavior();
     }
 }
