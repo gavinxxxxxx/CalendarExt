@@ -18,7 +18,7 @@ public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
 
     @Override
     public boolean onDependentViewChanged(CoordinatorLayout parent, View child, View dependency) {
-        child.setTranslationY(((ICalendar) dependency).getB());
+        child.setTranslationY(((ICalendar) dependency).getCurrHeight());
         return true;
     }
 }

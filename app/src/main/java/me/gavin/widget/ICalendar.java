@@ -30,7 +30,7 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
     public static final int SCROLL_HORIZONTAL = 1; // 水平滑动
     public static final int SCROLL_VERTICAL = 2; // 竖直滑动
 
-    private int mWidth, mHeight, mHeight2;
+    private int mWidth, mHeight, mRequestHeight;
     private float mCellWidth, mCellHeight;
     private float mDiffY;
 
@@ -75,21 +75,19 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
         Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
         float baseline = (mCellHeight - fontMetrics.bottom - fontMetrics.top) / 2f;
         mDiffY = baseline - mCellHeight / 2f;
-        mHeight2 = (int) (mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
-        mHeight = Math.min(mHeight2, MeasureSpec.getSize(heightMeasureSpec));
+        mRequestHeight = (int) (mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
+        mHeight = Math.min(mRequestHeight, MeasureSpec.getSize(heightMeasureSpec));
         setMeasuredDimension(mWidth, mHeight);
     }
 
-    private int b;
-
     public int consumed(int dy) {
-        b = getLayoutParams().height = Math.max((int) mCellHeight * 2, mHeight - dy);
+        mHeight = getLayoutParams().height = Math.min(mRequestHeight, Math.max((int) mCellHeight * 2, mHeight - dy));
         requestLayout();
         return mHeight - dy > mCellHeight * 2 ? dy : 0;
     }
 
-    public int getB() {
-        return Math.min(b != 0 ? b : mHeight2, mHeight);
+    public int getCurrHeight() {
+        return mHeight;
     }
 
     @Override
@@ -123,7 +121,7 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
 
     private void drawWeek(Canvas canvas, DateData.Week week, int offset, float y, int line) {
         line -= mData.sLine;
-        y = Math.max(line * mCellHeight + mCellHeight * 1.5f, y - mHeight2 + mHeight);
+        y = Math.max(line * mCellHeight + mCellHeight * 1.5f, y - mRequestHeight + mHeight);
         for (int i = 0; i < week.days.size(); i++) {
             drawDay(canvas, week.days.get(i), mCellWidth * i + mCellWidth / 2f + offset * mWidth, y);
         }
@@ -215,9 +213,9 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
                     float yv = mVelocityTracker.getYVelocity();
                     int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity() * 2;
                     if (Math.abs(yv) < minFlingVelocity) {
-                        smoothScrollYBy(mHeight, mHeight - mCellHeight * 2 > mHeight2 - mHeight ? mHeight2 : (int) mCellHeight * 2);
+                        smoothScrollYBy(mHeight, mHeight - mCellHeight * 2 > mRequestHeight - mHeight ? mRequestHeight : (int) mCellHeight * 2);
                     } else {
-                        smoothScrollYBy(mHeight, yv > 0 ? mHeight2 : (int) mCellHeight * 2);
+                        smoothScrollYBy(mHeight, yv > 0 ? mRequestHeight : (int) mCellHeight * 2);
                     }
                 }
                 if (mVelocityTracker != null) {
