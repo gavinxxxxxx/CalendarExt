@@ -30,7 +30,7 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
     public static final int SCROLL_HORIZONTAL = 1; // 水平滑动
     public static final int SCROLL_VERTICAL = 2; // 竖直滑动
 
-    private int mWidth, mHeight, mRequestHeight;
+    private int mWidth, mHeight, mMaxHeight, mMinHeight;
     private float mCellWidth, mCellHeight;
     private float mDiffY;
 
@@ -44,7 +44,6 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
     private int mScrollState;
 
     private DateData mData;
-    private float mSelTop;
 
     private Consumer<Date> mDateSelectedListener;
 
@@ -75,15 +74,16 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
         Paint.FontMetricsInt fontMetrics = mTextPaint.getFontMetricsInt();
         float baseline = (mCellHeight - fontMetrics.bottom - fontMetrics.top) / 2f;
         mDiffY = baseline - mCellHeight / 2f;
-        mRequestHeight = (int) (mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
-        mHeight = Math.min(mRequestHeight, MeasureSpec.getSize(heightMeasureSpec));
+        mMaxHeight = (int) Math.ceil(mCellHeight + mCellHeight * mData.months.get(1).weeks.size());
+        mMinHeight = (int) Math.ceil(mCellHeight * 2f);
+        mHeight = Math.min(mMaxHeight, MeasureSpec.getSize(heightMeasureSpec));
         setMeasuredDimension(mWidth, mHeight);
     }
 
     public int consumed(int dy) {
-        mHeight = getLayoutParams().height = Math.min(mRequestHeight, Math.max((int) mCellHeight * 2, mHeight - dy));
+        mHeight = getLayoutParams().height = Math.min(mMaxHeight, Math.max(mMinHeight, mHeight - dy));
         requestLayout();
-        return mHeight - dy > mCellHeight * 2 ? dy : 0;
+        return mHeight - dy > mMinHeight ? dy : 0;
     }
 
     public int getCurrHeight() {
@@ -121,7 +121,7 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
 
     private void drawWeek(Canvas canvas, DateData.Week week, int offset, float y, int line) {
         line -= mData.sLine;
-        y = Math.max(line * mCellHeight + mCellHeight * 1.5f, y - mRequestHeight + mHeight);
+        y = Math.max(line * mCellHeight + mCellHeight * 1.5f, y - mMaxHeight + mHeight);
         for (int i = 0; i < week.days.size(); i++) {
             drawDay(canvas, week.days.get(i), mCellWidth * i + mCellWidth / 2f + offset * mWidth, y);
         }
@@ -172,7 +172,7 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
                     mLastY = event.getY();
                 } else if (mScrollState == SCROLL_VERTICAL) {
                     mVelocityTracker.addMovement(event);
-                    getLayoutParams().height = Math.max((int) mCellHeight * 2, mHeight - (int) (mLastY - event.getY()));
+                    getLayoutParams().height = Math.max(mMinHeight, mHeight - (int) (mLastY - event.getY()));
                     requestLayout();
                     mLastX = event.getX();
                     mLastY = event.getY();
@@ -213,9 +213,9 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
                     float yv = mVelocityTracker.getYVelocity();
                     int minFlingVelocity = ViewConfiguration.get(getContext()).getScaledMinimumFlingVelocity() * 2;
                     if (Math.abs(yv) < minFlingVelocity) {
-                        smoothScrollYBy(mHeight, mHeight - mCellHeight * 2 > mRequestHeight - mHeight ? mRequestHeight : (int) mCellHeight * 2);
+                        smoothScrollYBy(mHeight, mHeight - mMinHeight > mMaxHeight - mHeight ? mMaxHeight : mMinHeight);
                     } else {
-                        smoothScrollYBy(mHeight, yv > 0 ? mRequestHeight : (int) mCellHeight * 2);
+                        smoothScrollYBy(mHeight, yv > 0 ? mMaxHeight : mMinHeight);
                     }
                 }
                 if (mVelocityTracker != null) {
@@ -232,7 +232,7 @@ public class ICalendar extends View implements CoordinatorLayout.AttachedBehavio
      * 当前是否为月模式
      */
     private boolean isMonthMode() {
-        return mHeight > Math.ceil(mCellHeight * 2);
+        return mHeight > mMinHeight;
     }
 
     public void smoothScrollXBy(int cw, int tw) {

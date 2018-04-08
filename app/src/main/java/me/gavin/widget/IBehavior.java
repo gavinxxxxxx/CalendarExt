@@ -22,16 +22,16 @@ public class IBehavior extends CoordinatorLayout.Behavior<ICalendar> {
 
     @Override
     public void onNestedPreScroll(@NonNull CoordinatorLayout coordinatorLayout, @NonNull ICalendar child, @NonNull View target, int dx, int dy, @NonNull int[] consumed, int type) {
-        L.d("onNestedPreScroll - " + target.getScrollY());
-        if (dy > 0) {
+        L.d("onNestedPreScroll - " + dy);
+        if (dy > 0 && type == ViewCompat.TYPE_TOUCH) {
             consumed[1] = child.consumed(dy);
         }
     }
 
     @Override
     public void onNestedScroll(@NonNull CoordinatorLayout coordinatorLayout, @NonNull ICalendar child, @NonNull View target, int dxConsumed, int dyConsumed, int dxUnconsumed, int dyUnconsumed, int type) {
-        L.d("onNestedScroll - " + target.getScrollY());
-        if (dyUnconsumed < 0) {
+        L.d("onNestedScroll - " + dxUnconsumed);
+        if (dyUnconsumed < 0 && type == ViewCompat.TYPE_TOUCH) {
             child.consumed(dyUnconsumed);
         }
     }
